@@ -1,0 +1,5 @@
+~~akasha~~
+
+v0.1
+[ ] Github
+[ ] Reizeable window with some max game resolution

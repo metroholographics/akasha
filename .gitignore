@@ -1,0 +1,5 @@
+*.exe
+libs/
+.vscode/
+assets/*.pxc
+*.concepts
