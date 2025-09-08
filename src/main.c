@@ -25,6 +25,8 @@ int main (int argc, char *argv[])
 
     game.spritesheet = LoadTexture("assets/spritesheet.png");
 
+    Vector2 map_pos = get_centered_top_left(WORLD_ROWS * WORLD_TILE_W, WORLD_COLS * WORLD_TILE_H, RENDER_W, RENDER_H);
+
     SetTargetFPS(120);
     while (!WindowShouldClose()) {
 
@@ -36,14 +38,22 @@ int main (int argc, char *argv[])
             (float)game.dimensions.window_height / game.dimensions.screen_height);
         float screen_w = game.dimensions.screen_width * scale;
         float screen_h = game.dimensions.screen_height * scale;
-
         Vector2 screen_pos = get_centered_top_left(screen_w, screen_h, game.dimensions.window_width, game.dimensions.window_height);
-        
+
         //Drawing to render texture
         BeginTextureMode(game.screen);
-            ClearBackground(DARKBROWN);
-            DrawTexturePro(game.spritesheet, (Rectangle){0,0,32,32}, (Rectangle){100,100,32,32}, (Vector2){0,0}, 0.0f, WHITE);
-            
+            ClearBackground(BLACK);
+            DrawRectangleLines(map_pos.x, map_pos.y, WORLD_ROWS * WORLD_TILE_W, WORLD_COLS * WORLD_TILE_H, YELLOW);
+            for (int y = 0; y < WORLD_COLS; y++) {
+                for (int x = 0; x < WORLD_ROWS; x++) {
+                    Vector2 rect_pos = (Vector2) {
+                        .x = map_pos.x + x * WORLD_TILE_W,
+                        .y = map_pos.y + y * WORLD_TILE_H,
+                    };
+                    DrawRectangleLines(rect_pos.x, rect_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
+                }
+            }
+            DrawTexturePro(game.spritesheet, (Rectangle){0,0,32,32}, (Rectangle){100,100,WORLD_TILE_W, WORLD_TILE_H}, (Vector2){0,0}, 0.0f, WHITE);
         EndTextureMode();
 
         //Drawing to frame buffer

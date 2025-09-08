@@ -3,10 +3,16 @@
 
 #define ASPECT_W 16
 #define ASPECT_H 9
-#define RENDER_W 1280
-#define RENDER_H 960
-#define G_DEFAULT_WIDTH 960
-#define G_DEFAULT_HEIGHT 640
+#define RENDER_W 960
+#define RENDER_H 540
+#define G_DEFAULT_WIDTH 1280
+#define G_DEFAULT_HEIGHT 720
+#define SPRITE_SIZE 32
+
+#define WORLD_ROWS 30
+#define WORLD_COLS 18
+#define WORLD_TILE_W (RENDER_W / WORLD_ROWS)
+#define WORLD_TILE_H (RENDER_H / WORLD_COLS)
 
 typedef struct dimensions {
     int window_width;

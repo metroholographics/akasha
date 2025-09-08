@@ -2,6 +2,10 @@
 
 v0.1
 [X] Github
-[~] Reizeable window with some max game resolution
+[X] Reizeable window with some max game resolution
     [ ] Revisit after sprite drawing to see if this needs to change
-[~] Sprite loading
+[X] Sprite loading
+[ ] World grid
+[ ] Tile selection
+[ ] Tile info (internal)
+[ ] Tile click to enter battle view
