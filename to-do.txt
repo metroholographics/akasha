@@ -3,11 +3,12 @@
 v0.1
 [X] Github
 [X] Reizeable window with some max game resolution
-    [ ] Revisit after sprite drawing to see if this needs to change
+    [~] Revisit after sprite drawing to see if this needs to change
 [X] Sprite loading
-[~] World grid and drawing
-    [~] random map
-[ ] Zooming
+[X] World grid and drawing
+    [X] random map
+[!] Zooming
+    [~] Mouse to screen space
 [ ] Tile selection
 [ ] Tile info (internal)
 [ ] Tile click to enter battle view

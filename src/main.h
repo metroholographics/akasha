@@ -3,14 +3,15 @@
 
 #define ASPECT_W 16
 #define ASPECT_H 9
-#define RENDER_W 896
-#define RENDER_H 504
+
 #define G_DEFAULT_WIDTH 1280
 #define G_DEFAULT_HEIGHT 720
 #define SPRITE_SIZE 32
 
 #define WORLD_ROWS 32
 #define WORLD_COLS 18
+#define RENDER_W WORLD_ROWS * SPRITE_SIZE//896
+#define RENDER_H WORLD_COLS * SPRITE_SIZE//504
 #define WORLD_TILE_W (RENDER_W / WORLD_ROWS)
 #define WORLD_TILE_H (RENDER_H / WORLD_COLS)
 
@@ -46,6 +47,7 @@ typedef struct game_state {
     Texture2D spritesheet;
     Dimensions dimensions;
     Tile overworld[WORLD_COLS][WORLD_ROWS];
+    Vector2 screen_mouse_pos;
 } GameState;
 
 Vector2 get_centered_top_left(float w, float h, float box_w, float box_h);
@@ -56,5 +58,6 @@ Rectangle get_sprite_source(SpriteID index);
 void draw_tile(Tile t, float x, float y, Texture2D s);
 void set_sprite_ids(Rectangle* s_array);
 void create_random_map(Tile grid[][WORLD_ROWS], Tile* t_array);
+Vector2 world_to_screen(Vector2 world_pos, Rectangle dest, float scale);
 
 #endif

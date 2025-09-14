@@ -10,6 +10,7 @@
 GameState game;
 Tile world_tiles[NUM_TILE_TYPES];
 Rectangle sprites[NUM_SPRITES];
+Camera2D camera;
 
 int main (int argc, char *argv[])
 {
@@ -19,11 +20,14 @@ int main (int argc, char *argv[])
     game.dimensions.screen_width  = RENDER_W;
     game.dimensions.screen_height = RENDER_H;
     
+    camera = (Camera2D) {0};
+    camera.zoom = 1.0f;
+
     set_sprite_ids(sprites);
     create_tiles(world_tiles);
     //create_empty_map(game.overworld, world_tiles);
     create_random_map(game.overworld, world_tiles);
-    
+
     InitWindow(game.dimensions.window_width, game.dimensions.window_height, "akasha");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetRandomSeed(time(NULL));
@@ -34,36 +38,63 @@ int main (int argc, char *argv[])
     game.spritesheet = LoadTexture("assets/spritesheet.png");
     SetTextureFilter(game.spritesheet, TEXTURE_FILTER_POINT);
 
-    Vector2 map_pos = get_centered_top_left(WORLD_ROWS * WORLD_TILE_W, WORLD_COLS * WORLD_TILE_H, RENDER_W, RENDER_H);
-
     SetTargetFPS(120);
     while (!WindowShouldClose()) {
+        game.dimensions.window_width  = GetScreenWidth();
+        game.dimensions.window_height = GetScreenHeight();
 
-        {
-            game.dimensions.window_width  = GetScreenWidth();
-            game.dimensions.window_height = GetScreenHeight();
-        }
-        float scale = fminf((float)game.dimensions.window_width / game.dimensions.screen_width,
-            (float)game.dimensions.window_height / game.dimensions.screen_height);
-        float screen_w = game.dimensions.screen_width * scale;
+        float scale = fminf(
+            (float)game.dimensions.window_width  / game.dimensions.screen_width,
+            (float)game.dimensions.window_height / game.dimensions.screen_height
+        );
+
+        float screen_w = game.dimensions.screen_width  * scale;
         float screen_h = game.dimensions.screen_height * scale;
-        Vector2 screen_pos = get_centered_top_left(screen_w, screen_h, game.dimensions.window_width, game.dimensions.window_height);
 
+        Rectangle window_dest = (Rectangle) {
+            .x = (game.dimensions.window_width  - screen_w) * 0.5f,
+            .y = (game.dimensions.window_height - screen_h) * 0.5f,
+            .width  = screen_w,
+            .height = screen_h
+        };
+        Vector2 world_mouse_pos = GetMousePosition();
+        game.screen_mouse_pos   = world_to_screen(world_mouse_pos, window_dest, scale);
+
+        float move = GetMouseWheelMove();
+        
+        if (move != 0.0f) {
+            camera.offset = game.screen_mouse_pos;
+            camera.target = game.screen_mouse_pos;
+            camera.zoom = expf(logf(camera.zoom) + ((float)GetMouseWheelMove()*0.1f));
+            if (camera.zoom > 3.0f) camera.zoom = 3.0f;
+            // if (move > 0) camera.zoom += 0.125f; 
+            // else if (move < 0) camera.zoom -= 0.125f;
+            // if (camera.zoom < 0.0f) camera.zoom = 0.0f;
+        }
+
+        printf("%f %f\n", move, camera.zoom);
         //Drawing to render texture
         BeginTextureMode(game.screen);
-            ClearBackground(BLACK);
+            BeginMode2D(camera);
+            ClearBackground((Color){25,0,25,255});
             for (int y = 0; y < WORLD_COLS; y++) {
                 for (int x = 0; x < WORLD_ROWS; x++) {
                     Tile t = game.overworld[y][x];
-                    Vector2 rect_pos = (Vector2) {
-                        .x = map_pos.x + x * WORLD_TILE_W,
-                        .y = map_pos.y + y * WORLD_TILE_H,
+                    Vector2 tile_pos = (Vector2) {
+                        .x = x * WORLD_TILE_W,
+                        .y = y * WORLD_TILE_H,
                     };
-                    draw_tile(t, rect_pos.x, rect_pos.y, game.spritesheet);
-                    //DrawRectangleLines(rect_pos.x, rect_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
+                    draw_tile(t, tile_pos.x, tile_pos.y, game.spritesheet);
+                    //DrawRectangleLines(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
                 }
             }
-            DrawTexturePro(game.spritesheet, (Rectangle){0,0,32,32}, (Rectangle){100,100,WORLD_TILE_W, WORLD_TILE_H}, (Vector2){0,0}, 0.0f, WHITE);
+            DrawTexturePro(
+                game.spritesheet,
+                (Rectangle){0,0,32,32},
+                (Rectangle){100,100,WORLD_TILE_W, WORLD_TILE_H},
+                (Vector2){0,0}, 0.0f, WHITE
+            );
+            EndMode2D();
         EndTextureMode();
 
         //Drawing to frame buffer
@@ -72,16 +103,29 @@ int main (int argc, char *argv[])
             DrawTexturePro(
                 game.screen.texture,
                 (Rectangle){0, 0, RENDER_W, -RENDER_H},
-                (Rectangle){screen_pos.x, screen_pos.y, screen_w, screen_h},
-                (Vector2){0,0},
-                0.0f,
-                WHITE
+                window_dest,
+                (Vector2){0,0}, 0.0f, WHITE
             );
         EndDrawing();
     }
 
     UnloadRenderTexture(game.screen);
     CloseWindow();
+}
+
+Vector2 world_to_screen(Vector2 world_pos, Rectangle dest, float scale)
+{
+    float mx = world_pos.x - dest.x;
+    float my = world_pos.y - dest.y;
+
+    if (mx < 0 || my < 0 || mx >= dest.width || my >= dest.height) {
+        return (Vector2) {-1,-1};
+    }
+
+    return (Vector2) {
+        .x = mx / scale,
+        .y = my / scale
+    };
 }
 
 void draw_tile(Tile t, float x, float y, Texture2D s)
