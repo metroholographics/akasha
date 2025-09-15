@@ -19,9 +19,6 @@ int main (int argc, char *argv[])
     game.dimensions.window_height = G_DEFAULT_HEIGHT;
     game.dimensions.screen_width  = RENDER_W;
     game.dimensions.screen_height = RENDER_H;
-    
-    camera = (Camera2D) {0};
-    camera.zoom = 1.0f;
 
     set_sprite_ids(sprites);
     create_tiles(world_tiles);
@@ -31,6 +28,11 @@ int main (int argc, char *argv[])
     InitWindow(game.dimensions.window_width, game.dimensions.window_height, "akasha");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetRandomSeed(time(NULL));
+
+    camera = (Camera2D) {0};
+    camera.offset = (Vector2){RENDER_W / 2, RENDER_H / 2};
+    camera.target = (Vector2){RENDER_W / 2, RENDER_H / 2};
+    camera.zoom = 1.0f;
 
     game.screen = LoadRenderTexture(RENDER_W, RENDER_H);
     SetTextureFilter(game.screen.texture, TEXTURE_FILTER_POINT);
@@ -48,8 +50,8 @@ int main (int argc, char *argv[])
             (float)game.dimensions.window_height / game.dimensions.screen_height
         );
 
-        float screen_w = game.dimensions.screen_width  * scale;
-        float screen_h = game.dimensions.screen_height * scale;
+        int screen_w = game.dimensions.screen_width  * scale;
+        int screen_h = game.dimensions.screen_height * scale;
 
         Rectangle window_dest = (Rectangle) {
             .x = (game.dimensions.window_width  - screen_w) * 0.5f,
@@ -59,20 +61,31 @@ int main (int argc, char *argv[])
         };
         Vector2 world_mouse_pos = GetMousePosition();
         game.screen_mouse_pos   = world_to_screen(world_mouse_pos, window_dest, scale);
-
+        printf("%f %f\n", game.screen_mouse_pos.x, game.screen_mouse_pos.y);
         float move = GetMouseWheelMove();
-        
         if (move != 0.0f) {
-            camera.offset = game.screen_mouse_pos;
-            camera.target = game.screen_mouse_pos;
+            Vector2 worldBefore = {
+                (world_mouse_pos.x - camera.offset.x) / camera.zoom + camera.target.x,
+                (world_mouse_pos.y - camera.offset.y) / camera.zoom + camera.target.y,
+            };
             camera.zoom = expf(logf(camera.zoom) + ((float)GetMouseWheelMove()*0.1f));
             if (camera.zoom > 3.0f) camera.zoom = 3.0f;
-            // if (move > 0) camera.zoom += 0.125f; 
-            // else if (move < 0) camera.zoom -= 0.125f;
-            // if (camera.zoom < 0.0f) camera.zoom = 0.0f;
+            Vector2 worldAfter = {
+                (world_mouse_pos.x - camera.offset.x) / camera.zoom + camera.target.x,
+                (world_mouse_pos.y - camera.offset.y) / camera.zoom + camera.target.y,
+            };
+            
+            camera.target.x += (worldBefore.x - worldAfter.x);
+            camera.target.y += (worldBefore.y - worldAfter.y);
         }
 
-        printf("%f %f\n", move, camera.zoom);
+        if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
+            Vector2 delta = GetMouseDelta();
+            delta = Vector2Scale(delta, -1.0f / camera.zoom);
+            camera.target = Vector2Add(camera.target, delta);
+        }
+
+        //printf("%f %f\n", move, camera.zoom);
         //Drawing to render texture
         BeginTextureMode(game.screen);
             BeginMode2D(camera);
@@ -94,6 +107,8 @@ int main (int argc, char *argv[])
                 (Rectangle){100,100,WORLD_TILE_W, WORLD_TILE_H},
                 (Vector2){0,0}, 0.0f, WHITE
             );
+            // DrawCircle(camera.target.x, camera.target.y, 5, RED);
+            // DrawCircle(camera.offset.x, camera.offset.y, 5, PINK);
             EndMode2D();
         EndTextureMode();
 
@@ -111,6 +126,7 @@ int main (int argc, char *argv[])
 
     UnloadRenderTexture(game.screen);
     CloseWindow();
+    return 0;
 }
 
 Vector2 world_to_screen(Vector2 world_pos, Rectangle dest, float scale)
