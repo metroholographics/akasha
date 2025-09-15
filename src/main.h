@@ -9,7 +9,7 @@
 #define SPRITE_SIZE 32
 
 #define WORLD_ROWS 48
-#define WORLD_COLS 36
+#define WORLD_COLS 27
 #define RENDER_W WORLD_ROWS * SPRITE_SIZE//896
 #define RENDER_H WORLD_COLS * SPRITE_SIZE//504
 #define WORLD_TILE_W (RENDER_W / WORLD_ROWS)
@@ -47,6 +47,7 @@ typedef struct game_state {
     Texture2D spritesheet;
     Dimensions dimensions;
     Tile overworld[WORLD_COLS][WORLD_ROWS];
+    Tile* selected_tile;
     Vector2 screen_mouse_pos;
 } GameState;
 

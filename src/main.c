@@ -62,6 +62,19 @@ int main (int argc, char *argv[])
         Vector2 world_mouse_pos = GetMousePosition();
         game.screen_mouse_pos   = world_to_screen(world_mouse_pos, window_dest, scale);
         printf("%f %f\n", game.screen_mouse_pos.x, game.screen_mouse_pos.y);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+            Vector2 worldMouse = (Vector2) {
+                (game.screen_mouse_pos.x - camera.offset.x) / camera.zoom + camera.target.x,
+                (game.screen_mouse_pos.y - camera.offset.y) / camera.zoom + camera.target.y
+            };
+            int tile_x = worldMouse.x / WORLD_TILE_W;
+            int tile_y = worldMouse.y / WORLD_TILE_H;
+            if (tile_x >= 0 && tile_x < WORLD_ROWS && tile_y >= 0 && tile_y < WORLD_COLS) {
+                game.selected_tile = &game.overworld[tile_y][tile_x];
+            } 
+        }
+
         float move = GetMouseWheelMove();
         if (move != 0.0f) {
             Vector2 worldBefore = {
@@ -92,12 +105,15 @@ int main (int argc, char *argv[])
             ClearBackground((Color){25,0,25,255});
             for (int y = 0; y < WORLD_COLS; y++) {
                 for (int x = 0; x < WORLD_ROWS; x++) {
-                    Tile t = game.overworld[y][x];
+                    Tile* t = &game.overworld[y][x];
                     Vector2 tile_pos = (Vector2) {
-                        .x = x * WORLD_TILE_W,
-                        .y = y * WORLD_TILE_H,
+                        .x = (x * WORLD_TILE_W),
+                        .y = (y * WORLD_TILE_H),
                     };
-                    draw_tile(t, tile_pos.x, tile_pos.y, game.spritesheet);
+                    if (t == game.selected_tile) {
+                        DrawRectangle(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKPURPLE);
+                    }
+                    draw_tile(*t, tile_pos.x, tile_pos.y, game.spritesheet);
                     //DrawRectangleLines(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
                 }
             }
@@ -109,6 +125,8 @@ int main (int argc, char *argv[])
             );
             // DrawCircle(camera.target.x, camera.target.y, 5, RED);
             // DrawCircle(camera.offset.x, camera.offset.y, 5, PINK);
+            //DrawCircle(window_dest.x, window_dest.y, 3, BLUE);
+            //DrawRectangle(window_dest.x, window_dest.y, window_dest.width, window_dest.height, BLUE);
             EndMode2D();
         EndTextureMode();
 

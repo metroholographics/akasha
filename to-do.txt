@@ -7,9 +7,12 @@ v0.1
 [X] Sprite loading
 [X] World grid and drawing
     [X] random map
-[~] Zooming
-    [X] Mouse to screen space
-    [ ] Fully understand how this works
-[ ] Tile selection
+[X] Zooming + Panning
+    [X] Zooming
+    [X] Panning
+    [ ] Fully understand how this (camera) works
+[~] Tile selection
+    [~] Mouse to Grid
+[ ] ORGANIZE
 [ ] Tile info (internal)
 [ ] Tile click to enter battle view
