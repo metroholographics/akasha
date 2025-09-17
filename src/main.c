@@ -15,10 +15,11 @@ Camera2D camera;
 int main (int argc, char *argv[])
 {
     (void)argc; (void)argv;
-    game.dimensions.window_width  = G_DEFAULT_WIDTH;
-    game.dimensions.window_height = G_DEFAULT_HEIGHT;
-    game.dimensions.screen_width  = RENDER_W;
-    game.dimensions.screen_height = RENDER_H;
+    game.dimensions.window_width    = G_DEFAULT_WIDTH;
+    game.dimensions.window_height   = G_DEFAULT_HEIGHT;
+    game.dimensions.screen_width    = RENDER_W;
+    game.dimensions.screen_height   = RENDER_H;
+    game.dimensions.scale           = 1.0f;
 
     set_sprite_ids(sprites);
     create_tiles(world_tiles);
@@ -42,81 +43,19 @@ int main (int argc, char *argv[])
 
     SetTargetFPS(120);
     while (!WindowShouldClose()) {
-        game.dimensions.window_width  = GetScreenWidth();
-        game.dimensions.window_height = GetScreenHeight();
+        Dimensions* g_d = &game.dimensions;
+        Mouse*      g_m = &game.mouse;
 
-        float scale = fminf(
-            (float)game.dimensions.window_width  / game.dimensions.screen_width,
-            (float)game.dimensions.window_height / game.dimensions.screen_height
-        );
-
-        int screen_w = game.dimensions.screen_width  * scale;
-        int screen_h = game.dimensions.screen_height * scale;
-
-        Rectangle window_dest = (Rectangle) {
-            .x = (game.dimensions.window_width  - screen_w) * 0.5f,
-            .y = (game.dimensions.window_height - screen_h) * 0.5f,
-            .width  = screen_w,
-            .height = screen_h
-        };
-        Vector2 world_mouse_pos = GetMousePosition();
-        game.screen_mouse_pos   = world_to_screen(world_mouse_pos, window_dest, scale);
-        printf("%f %f\n", game.screen_mouse_pos.x, game.screen_mouse_pos.y);
-
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            Vector2 worldMouse = (Vector2) {
-                (game.screen_mouse_pos.x - camera.offset.x) / camera.zoom + camera.target.x,
-                (game.screen_mouse_pos.y - camera.offset.y) / camera.zoom + camera.target.y
-            };
-            int tile_x = worldMouse.x / WORLD_TILE_W;
-            int tile_y = worldMouse.y / WORLD_TILE_H;
-            if (tile_x >= 0 && tile_x < WORLD_ROWS && tile_y >= 0 && tile_y < WORLD_COLS) {
-                game.selected_tile = &game.overworld[tile_y][tile_x];
-            } 
-        }
-
-        float move = GetMouseWheelMove();
-        if (move != 0.0f) {
-            Vector2 worldBefore = {
-                (world_mouse_pos.x - camera.offset.x) / camera.zoom + camera.target.x,
-                (world_mouse_pos.y - camera.offset.y) / camera.zoom + camera.target.y,
-            };
-            camera.zoom = expf(logf(camera.zoom) + ((float)GetMouseWheelMove()*0.1f));
-            if (camera.zoom > 3.0f) camera.zoom = 3.0f;
-            Vector2 worldAfter = {
-                (world_mouse_pos.x - camera.offset.x) / camera.zoom + camera.target.x,
-                (world_mouse_pos.y - camera.offset.y) / camera.zoom + camera.target.y,
-            };
-            
-            camera.target.x += (worldBefore.x - worldAfter.x);
-            camera.target.y += (worldBefore.y - worldAfter.y);
-        }
-
-        if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
-            Vector2 delta = GetMouseDelta();
-            delta = Vector2Scale(delta, -1.0f / camera.zoom);
-            camera.target = Vector2Add(camera.target, delta);
-        }
-
-        //printf("%f %f\n", move, camera.zoom);
+        update_game_dimensions(g_d);
+        handle_mouse(g_m, g_d);
+    
         //Drawing to render texture
         BeginTextureMode(game.screen);
             BeginMode2D(camera);
             ClearBackground((Color){25,0,25,255});
-            for (int y = 0; y < WORLD_COLS; y++) {
-                for (int x = 0; x < WORLD_ROWS; x++) {
-                    Tile* t = &game.overworld[y][x];
-                    Vector2 tile_pos = (Vector2) {
-                        .x = (x * WORLD_TILE_W),
-                        .y = (y * WORLD_TILE_H),
-                    };
-                    if (t == game.selected_tile) {
-                        DrawRectangle(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKPURPLE);
-                    }
-                    draw_tile(*t, tile_pos.x, tile_pos.y, game.spritesheet);
-                    //DrawRectangleLines(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
-                }
-            }
+
+            draw_world(game.overworld);
+
             DrawTexturePro(
                 game.spritesheet,
                 (Rectangle){0,0,32,32},
@@ -125,8 +64,8 @@ int main (int argc, char *argv[])
             );
             // DrawCircle(camera.target.x, camera.target.y, 5, RED);
             // DrawCircle(camera.offset.x, camera.offset.y, 5, PINK);
-            //DrawCircle(window_dest.x, window_dest.y, 3, BLUE);
-            //DrawRectangle(window_dest.x, window_dest.y, window_dest.width, window_dest.height, BLUE);
+            // DrawCircle(g_d->scaled_screen.x, g_d->scaled_screen.y, 3, BLUE);
+            // DrawRectangleLines(g_d->scaled_screen.x, g_d->scaled_screen.y, g_d->scaled_screen.width, g_d->scaled_screen.height, BLUE);
             EndMode2D();
         EndTextureMode();
 
@@ -136,7 +75,7 @@ int main (int argc, char *argv[])
             DrawTexturePro(
                 game.screen.texture,
                 (Rectangle){0, 0, RENDER_W, -RENDER_H},
-                window_dest,
+                g_d->scaled_screen,
                 (Vector2){0,0}, 0.0f, WHITE
             );
         EndDrawing();
@@ -147,7 +86,103 @@ int main (int argc, char *argv[])
     return 0;
 }
 
-Vector2 world_to_screen(Vector2 world_pos, Rectangle dest, float scale)
+void draw_world(Tile grid[][WORLD_ROWS])
+{
+    for (int y = 0; y < WORLD_COLS; y++) {
+        for (int x = 0; x < WORLD_ROWS; x++) {
+            Tile* t = &grid[y][x];
+            Vector2 tile_pos = (Vector2) {
+                .x = x * WORLD_TILE_W,
+                .y = y * WORLD_TILE_H,
+            };
+            if (t == game.selected_tile) {
+                DrawRectangle(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKPURPLE);
+            }
+            draw_tile(*t, tile_pos.x, tile_pos.y, game.spritesheet);
+            //DrawRectangleLines(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
+        }
+    }
+}
+
+void handle_mouse(Mouse* m, Dimensions* d)
+{
+    m->window_pos = GetMousePosition();
+    m->screen_pos = window_to_screen_coords(m->window_pos, d->scaled_screen, d->scale);
+    //printf("%f %f\n", m->screen_pos.x, m->screen_pos.y);
+    m->render_pos = pos_relative_to_render(m->screen_pos, camera);
+    //printf("%f %f\n", m->render_pos.x, m->render_pos.y);
+    handle_zoom(m, &camera);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Tile* t = get_world_tile(m->render_pos, game.overworld);
+        if (t != NULL) {
+            game.selected_tile = t;
+        }
+    }
+    if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
+        Vector2 delta = GetMouseDelta();
+        delta = Vector2Scale(delta, -1.0f / camera.zoom);
+        camera.target = Vector2Add(camera.target, delta);
+    }
+}
+
+void handle_zoom(Mouse* m, Camera2D* cam)
+{
+    float move = GetMouseWheelMove();
+    if (move != 0.0f) {
+        Vector2 worldBefore = pos_relative_to_render(m->window_pos, *cam);
+
+        cam->zoom = expf(logf(cam->zoom) + ((float)GetMouseWheelMove()*0.1f));
+        if (cam->zoom > 3.0f) cam->zoom = 3.0f;
+        Vector2 worldAfter = pos_relative_to_render(m->window_pos, *cam);
+        
+        cam->target.x += (worldBefore.x - worldAfter.x);
+        cam->target.y += (worldBefore.y - worldAfter.y);
+        
+    }
+}
+
+Tile* get_world_tile(Vector2 renderpos, Tile grid[][WORLD_ROWS])
+{
+    int tile_x = renderpos.x / WORLD_TILE_W;
+    int tile_y = renderpos.y / WORLD_TILE_H;
+    if (tile_x >= 0 && tile_x < WORLD_ROWS && tile_y >= 0 && tile_y < WORLD_COLS) {
+        return &grid[tile_y][tile_x];
+    }
+    return NULL;
+}
+
+
+Vector2 pos_relative_to_render(Vector2 current, Camera2D cam)
+{
+    return (Vector2) {
+        (current.x - cam.offset.x) / cam.zoom + cam.target.x,
+        (current.y - cam.offset.y) / cam.zoom + cam.target.y
+    };
+}
+
+void update_game_dimensions(Dimensions* d)
+{
+    d->window_width  = GetScreenWidth();
+    d->window_height = GetScreenHeight();
+
+    d->scale = fminf(
+        (float)d->window_width  / d->screen_width,
+        (float)d->window_height / d->screen_height
+    );
+
+    int screen_w = d->screen_width  * d->scale;
+    int screen_h = d->screen_height * d->scale;
+
+    d->scaled_screen = (Rectangle) {
+        .x      = (d->window_width  - screen_w) * 0.5f,
+        .y      = (d->window_height - screen_h) * 0.5f,
+        .width  = screen_w,
+        .height = screen_h
+    };
+}
+
+Vector2 window_to_screen_coords(Vector2 world_pos, Rectangle dest, float scale)
 {
     float mx = world_pos.x - dest.x;
     float my = world_pos.y - dest.y;
@@ -215,7 +250,7 @@ void create_tiles(Tile* t_array)
     return;
 }
 
-Tile get_tile(TileType t, Tile* t_array)
+Tile set_tile(TileType t, Tile* t_array)
 {
     return t_array[t];
 }
@@ -224,7 +259,7 @@ void create_empty_map(Tile grid[][WORLD_ROWS], Tile* t_array)
 {
     for (int y = 0; y < WORLD_COLS; y++) {
         for (int x = 0; x < WORLD_ROWS; x++) {
-            grid[y][x] = get_tile(EMPTY, t_array);
+            grid[y][x] = set_tile(EMPTY, t_array);
         }
     }
 }
@@ -235,7 +270,7 @@ void create_random_map(Tile grid[][WORLD_ROWS], Tile* t_array)
     for (int y = 0; y < WORLD_COLS; y++) {
         for (int x = 0; x < WORLD_ROWS; x++) {
             t = GetRandomValue(EMPTY, NUM_TILE_TYPES - 1);
-            grid[y][x] = get_tile(t, t_array);
+            grid[y][x] = set_tile(t, t_array);
         }
     }
 }

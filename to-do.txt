@@ -13,6 +13,6 @@ v0.1
     [ ] Fully understand how this (camera) works
 [~] Tile selection
     [~] Mouse to Grid
-[ ] ORGANIZE
+[~] ORGANIZE
 [ ] Tile info (internal)
 [ ] Tile click to enter battle view
