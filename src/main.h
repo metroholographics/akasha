@@ -70,6 +70,7 @@ typedef struct game_state {
     Mouse mouse;
     Tile overworld[WORLD_COLS][WORLD_ROWS];
     Tile* selected_tile;
+    Tile* move_tile;
 } GameState;
 
 Vector2 get_centered_top_left(float w, float h, float box_w, float box_h);

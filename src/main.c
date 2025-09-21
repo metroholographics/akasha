@@ -15,6 +15,7 @@ Camera2D camera;
 int main (int argc, char *argv[])
 {
     (void)argc; (void)argv;
+    game = (GameState) {0};
     game.dimensions.window_width    = G_DEFAULT_WIDTH;
     game.dimensions.window_height   = G_DEFAULT_HEIGHT;
     game.dimensions.screen_width    = RENDER_W;
@@ -107,6 +108,8 @@ void draw_world(Tile grid[][WORLD_ROWS])
             };
             if (t == game.selected_tile) {
                 DrawRectangle(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKPURPLE);
+            } else if (t == game.move_tile) {
+                DrawRectangle(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGREEN);
             }
             draw_tile(*t, tile_pos.x, tile_pos.y, game.spritesheet);
 
@@ -152,11 +155,28 @@ void handle_mouse(Mouse* m, Dimensions* d)
     //printf("%f %f\n", m->render_pos.x, m->render_pos.y);
     handle_zoom(m, &camera);
 
+    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+        game.selected_tile  = NULL;
+        game.move_tile      = NULL;
+    }
+
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         Tile* t = get_world_tile(m->render_pos, game.overworld);
-        if (t != NULL) {
-            game.selected_tile = t;
+        Tile* selected = game.selected_tile;
+        bool available = (t != NULL);
+        if (available) {
+            bool already_selected = (t == selected);
+            bool selected_army = (selected != NULL && selected->army != NULL &&
+                selected->army->commander->active && selected->army->commander->player
+            );
+            if (!already_selected && !selected_army) {
+                game.selected_tile = t;
+            } else if (!already_selected && selected_army) {
+                game.move_tile = t;
+            }
         }
+
+
     }
     if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
         Vector2 delta = GetMouseDelta();

@@ -14,10 +14,11 @@ v0.1
 [X] Tile selection
     [X] Mouse to Grid
 [X] ORGANIZE
-[~] Basic Entities
-    [~] Leaders
-    [~] Troops
-    [~] Player army
+[X] Basic Entities
+    [X] Leaders
+    [X] Troops
+    [X] Player army
 [ ] Move player army
+    [ ] Movement algorithm detour
 [ ] Tile info (internal)
 [ ] Tile click to enter battle view
