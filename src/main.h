@@ -8,12 +8,14 @@
 #define G_DEFAULT_HEIGHT 720
 #define SPRITE_SIZE 32
 
-#define WORLD_ROWS 48
-#define WORLD_COLS 27
+#define WORLD_ROWS 32//48
+#define WORLD_COLS 18//27
 #define RENDER_W WORLD_ROWS * SPRITE_SIZE
 #define RENDER_H WORLD_COLS * SPRITE_SIZE
 #define WORLD_TILE_W (RENDER_W / WORLD_ROWS)
 #define WORLD_TILE_H (RENDER_H / WORLD_COLS)
+
+#define MAX_TROOPS 50
 
 typedef enum {
     EMPTY = 0,
@@ -31,10 +33,6 @@ typedef enum {
     NUM_SPRITES
 } SpriteID;
 
-typedef struct tile {
-    TileType type;
-} Tile;
-
 typedef struct mouse {
     Vector2 window_pos;
     Vector2 screen_pos;
@@ -50,6 +48,21 @@ typedef struct dimensions {
     int screen_height;
 } Dimensions;
 
+typedef struct entity {
+    bool active;
+    bool player;
+} Entity;
+
+typedef struct army {
+    Entity troops[MAX_TROOPS];
+    Entity* commander;
+} Army;
+
+typedef struct tile {
+    TileType type;
+    Army* army;
+} Tile;
+
 typedef struct game_state {
     RenderTexture2D screen;
     Texture2D spritesheet;
@@ -61,6 +74,7 @@ typedef struct game_state {
 
 Vector2 get_centered_top_left(float w, float h, float box_w, float box_h);
 void create_tiles(Tile* t_array);
+Tile create_tile(TileType tt, Army* a);
 Tile set_tile(TileType t, Tile* t_array);
 void create_empty_map(Tile grid[][WORLD_ROWS], Tile* t_array);
 Rectangle get_sprite_source(SpriteID index);

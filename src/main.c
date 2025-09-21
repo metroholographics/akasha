@@ -37,9 +37,19 @@ int main (int argc, char *argv[])
 
     game.screen = LoadRenderTexture(RENDER_W, RENDER_H);
     SetTextureFilter(game.screen.texture, TEXTURE_FILTER_POINT);
-
     game.spritesheet = LoadTexture("assets/spritesheet.png");
     SetTextureFilter(game.spritesheet, TEXTURE_FILTER_POINT);
+
+    Entity player = (Entity) {
+        .active = true,
+        .player = true
+    };
+
+    Army test_army = (Army) {
+        .commander = &player
+    };
+
+    game.overworld[1][5].army = &test_army;
 
     SetTargetFPS(120);
     while (!WindowShouldClose()) {
@@ -56,12 +66,12 @@ int main (int argc, char *argv[])
 
             draw_world(game.overworld);
 
-            DrawTexturePro(
-                game.spritesheet,
-                (Rectangle){0,0,32,32},
-                (Rectangle){100,100,WORLD_TILE_W, WORLD_TILE_H},
-                (Vector2){0,0}, 0.0f, WHITE
-            );
+            // DrawTexturePro(
+            //     game.spritesheet,
+            //     (Rectangle){0,0,32,32},
+            //     (Rectangle){100,100,WORLD_TILE_W, WORLD_TILE_H},
+            //     (Vector2){0,0}, 0.0f, WHITE
+            // );
             // DrawCircle(camera.target.x, camera.target.y, 5, RED);
             // DrawCircle(camera.offset.x, camera.offset.y, 5, PINK);
             // DrawCircle(g_d->scaled_screen.x, g_d->scaled_screen.y, 3, BLUE);
@@ -99,9 +109,38 @@ void draw_world(Tile grid[][WORLD_ROWS])
                 DrawRectangle(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKPURPLE);
             }
             draw_tile(*t, tile_pos.x, tile_pos.y, game.spritesheet);
+
+            if (t->army != NULL) {
+                DrawTexturePro(
+                    game.spritesheet,
+                    (Rectangle){0,0,32,32},
+                    (Rectangle){tile_pos.x,tile_pos.y,WORLD_TILE_W, WORLD_TILE_H},
+                    (Vector2){0,0}, 0.0f, WHITE
+                );
+            }
             //DrawRectangleLines(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
         }
     }
+}
+
+void draw_tile(Tile t, float x, float y, Texture2D s)
+{
+    SpriteID idx;
+    Rectangle dest = (Rectangle) {
+        .height = WORLD_TILE_H,
+        .width = WORLD_TILE_W,
+        .x = x,
+        .y = y
+     };
+
+    switch (t.type) {
+        case EMPTY:     idx = 0;            break;
+        case CLOUD:     idx = CLOUD_S;      break;
+        case MOON:      idx = MOON_S;       break;
+        case MOUNTAIN:  idx = MOUNTAIN_S;   break;
+        default:        idx = 0;            break;
+    };
+    DrawTexturePro(s, get_sprite_source(idx), dest, (Vector2){0,0}, 0.0f, WHITE);
 }
 
 void handle_mouse(Mouse* m, Dimensions* d)
@@ -197,25 +236,7 @@ Vector2 window_to_screen_coords(Vector2 world_pos, Rectangle dest, float scale)
     };
 }
 
-void draw_tile(Tile t, float x, float y, Texture2D s)
-{
-    SpriteID idx;
-    Rectangle dest = (Rectangle) {
-        .height = WORLD_TILE_H,
-        .width = WORLD_TILE_W,
-        .x = x,
-        .y = y
-     };
 
-    switch (t.type) {
-        case EMPTY:     idx = 0;            break;
-        case CLOUD:     idx = CLOUD_S;      break;
-        case MOON:      idx = MOON_S;       break;
-        case MOUNTAIN:  idx = MOUNTAIN_S;   break;
-        default:        idx = 0;            break;
-    };
-    DrawTexturePro(s, get_sprite_source(idx), dest, (Vector2){0,0}, 0.0f, WHITE);
-}
 
 Rectangle get_sprite_source(SpriteID index)
 {
@@ -235,19 +256,20 @@ Vector2 get_centered_top_left(float w, float h, float box_w, float box_h)
 
 void create_tiles(Tile* t_array)
 {
-    t_array[EMPTY]      = (Tile) {
-        .type = EMPTY
-    };
-    t_array[CLOUD]      = (Tile) {
-        .type = CLOUD
-    };
-    t_array[MOON]       = (Tile) {
-        .type = MOON
-    };
-    t_array[MOUNTAIN]   = (Tile) {
-        .type = MOUNTAIN
-    };
+    t_array[EMPTY]      = create_tile(EMPTY, NULL);
+    t_array[CLOUD]      = create_tile(CLOUD, NULL);
+    t_array[MOON]       = create_tile(MOON, NULL);
+    t_array[MOUNTAIN]   = create_tile(MOUNTAIN, NULL);
     return;
+}
+
+Tile create_tile(TileType tt, Army* a)
+{
+    Tile t = {0};
+    t.type = tt;
+    t.army = a;
+
+    return t;
 }
 
 Tile set_tile(TileType t, Tile* t_array)

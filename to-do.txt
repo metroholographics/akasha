@@ -11,8 +11,13 @@ v0.1
     [X] Zooming
     [X] Panning
     [ ] Fully understand how this (camera) works
-[~] Tile selection
-    [~] Mouse to Grid
-[~] ORGANIZE
+[X] Tile selection
+    [X] Mouse to Grid
+[X] ORGANIZE
+[~] Basic Entities
+    [~] Leaders
+    [~] Troops
+    [~] Player army
+[ ] Move player army
 [ ] Tile info (internal)
 [ ] Tile click to enter battle view
