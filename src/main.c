@@ -6,6 +6,7 @@
 #include <time.h>
 #include <math.h>
 #include "main.h"
+#include "astar.h"
 
 GameState game;
 Tile world_tiles[NUM_TILE_TYPES];
@@ -120,6 +121,12 @@ void draw_world(Tile grid[][WORLD_ROWS])
                     (Rectangle){tile_pos.x,tile_pos.y,WORLD_TILE_W, WORLD_TILE_H},
                     (Vector2){0,0}, 0.0f, WHITE
                 );
+                if (t->army->path_length > 0) {
+                    for (int i = 0; i < t->army->path_length; i++) {
+                        ast_Node step = t->army->current_path[i];
+                        DrawCircle(step.x * WORLD_TILE_W, step.y * WORLD_TILE_H, 4, GREEN);
+                    }
+                }
             }
             //DrawRectangleLines(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
         }
@@ -171,11 +178,14 @@ void handle_mouse(Mouse* m, Dimensions* d)
             );
             if (!already_selected && !selected_army) {
                 game.selected_tile = t;
+                //selected->army->path_length = 0;
             } else if (!already_selected && selected_army) {
                 game.move_tile = t;
+                ast_Node start = (ast_Node) {selected->x, selected->y};
+                ast_Node goal  = (ast_Node) {t->x, t->y};
+                selected->army->path_length = find_astar_path(&game, start, goal, selected->army->current_path, MAX_PATH);
             }
         }
-
 
     }
     if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
@@ -302,6 +312,8 @@ void create_empty_map(Tile grid[][WORLD_ROWS], Tile* t_array)
     for (int y = 0; y < WORLD_COLS; y++) {
         for (int x = 0; x < WORLD_ROWS; x++) {
             grid[y][x] = set_tile(EMPTY, t_array);
+            grid[y][x].x = x;
+            grid[y][x].y = y;
         }
     }
 }
@@ -313,6 +325,8 @@ void create_random_map(Tile grid[][WORLD_ROWS], Tile* t_array)
         for (int x = 0; x < WORLD_ROWS; x++) {
             t = GetRandomValue(EMPTY, NUM_TILE_TYPES - 1);
             grid[y][x] = set_tile(t, t_array);
+            grid[y][x].x = x;
+            grid[y][x].y = y;
         }
     }
 }

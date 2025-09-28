@@ -1,0 +1,19 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#define ASPECT_W 16
+#define ASPECT_H 9
+
+#define G_DEFAULT_WIDTH 1280
+#define G_DEFAULT_HEIGHT 720
+#define SPRITE_SIZE 32
+
+#define WORLD_ROWS 32//48
+#define WORLD_COLS 18//27
+#define RENDER_W WORLD_ROWS * SPRITE_SIZE
+#define RENDER_H WORLD_COLS * SPRITE_SIZE
+#define WORLD_TILE_W (RENDER_W / WORLD_ROWS)
+#define WORLD_TILE_H (RENDER_H / WORLD_COLS)
+
+
+#endif

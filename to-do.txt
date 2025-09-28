@@ -20,7 +20,13 @@ v0.1
     [X] Player army
 [!] Move player army
     [~] Movement algorithm detour
-    [ ] REVERT DEBUG TASKS
-    [ ] Implement Astar in main game
-[ ] Tile info (internal)
+    [~] REVERT DEBUG TASKS
+    [!] Implement Astar in main game
+        [ ] Fix drawing issue (draw it above the tiles - rethink how armies are stored)
+        [ ] Figure out how to reset
+    [ ] Move player to location
+[ ] Tile info
+    [ ] Walkable
+    [ ] Cost
+    [ ] Integrate into A*
 [ ] Tile click to enter battle view

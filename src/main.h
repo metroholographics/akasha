@@ -1,21 +1,11 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#define ASPECT_W 16
-#define ASPECT_H 9
-
-#define G_DEFAULT_WIDTH 1280
-#define G_DEFAULT_HEIGHT 720
-#define SPRITE_SIZE 32
-
-#define WORLD_ROWS 32//48
-#define WORLD_COLS 18//27
-#define RENDER_W WORLD_ROWS * SPRITE_SIZE
-#define RENDER_H WORLD_COLS * SPRITE_SIZE
-#define WORLD_TILE_W (RENDER_W / WORLD_ROWS)
-#define WORLD_TILE_H (RENDER_H / WORLD_COLS)
+#include "config.h"
+#include "astar.h"
 
 #define MAX_TROOPS 50
+#define MAX_PATH 512
 
 typedef enum {
     EMPTY = 0,
@@ -56,14 +46,17 @@ typedef struct entity {
 typedef struct army {
     Entity troops[MAX_TROOPS];
     Entity* commander;
+    ast_Node current_path[MAX_PATH];
+    int path_length;
 } Army;
 
 typedef struct tile {
+    int x, y;
     TileType type;
     Army* army;
 } Tile;
 
-typedef struct game_state {
+typedef struct GameState {
     RenderTexture2D screen;
     Texture2D spritesheet;
     Dimensions dimensions;

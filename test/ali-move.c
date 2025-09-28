@@ -19,6 +19,7 @@
 #define ORIGIN_COL DARKGREEN
 #define TARGET_COL DARKBLUE
 #define OBSTACLE_COL DARKPURPLE
+#define GOAL_COL YELLOW
 
 #define MAX_NODES (COLS * ROWS)
 #define MAX_PATH 512
@@ -55,6 +56,7 @@ typedef enum clickstate {
     ORIGIN,
     TARGET,
     OBSTACLE,
+    GOAL,
     NUM_STATES 
 } ClickState;
 
@@ -72,9 +74,12 @@ typedef struct simulation {
     float timer;
     bool sim;
     bool draw_line;
+    bool djiktra_created;
 } Simulation;
 
 Cell grid[ROWS][COLS];
+int djikstra_map[ROWS][COLS];
+Vector2 djikstra_goals[ROWS*COLS];
 Vector2 start_pos;
 ClickState state;
 Font font;
@@ -90,6 +95,8 @@ void draw_state(ClickState cs);
 bool mouse_in_grid(Vector2 pos, Vector2 start, float w, float h);
 
 int find_astar_path(Cell grid[][COLS], Node start, Node goal, Node outpath[], int maxPath);
+void add_djikstra_goal(int y, int x);
+void create_djikstra(void);
 
 int main(int argc, char* argv[])
 {
@@ -115,17 +122,25 @@ int main(int argc, char* argv[])
                 .state = NONE
             };
             c->middle = get_middle(c->top_left.x, c->top_left.y, SIZE, SIZE);
+            djikstra_map[y][x] = 99;
         }
     }
+
+    for (int i = 0; i < ROWS * COLS; i++) {
+        djikstra_goals[i] = (Vector2) {-1,-1};
+    }
+
     simulation.sim          =  false;
     simulation.timer        = 0.0f;
     simulation.current_cell = (Vector2) {-1,-1};
     simulation.target_cell  = (Vector2) {-1,-1};
+    simulation.djiktra_created = false;
 
     while(!WindowShouldClose()) {
         float delta = GetFrameTime();
         Vector2 mouse_pos = GetMousePosition();
         float move = GetMouseWheelMove();
+        bool djiksta_trigger = false;
 
         if (move > 0.0f) {
             state = (state + 1) % NUM_STATES;
@@ -153,6 +168,10 @@ int main(int argc, char* argv[])
                         .x = tile_x,
                         .y = tile_y,
                     };
+                } else if (state == GOAL) {
+                    grid[tile_y][tile_x].state = GOAL;
+                    add_djikstra_goal(tile_y, tile_x);
+                    djiksta_trigger = true;
                 } else {
                     grid[tile_y][tile_x].state = state;
                 }
@@ -160,6 +179,7 @@ int main(int argc, char* argv[])
                     case NONE:
                     case TARGET:
                     case ORIGIN:
+                    case GOAL:
                         grid[tile_y][tile_x].cost = 1;
                         break;
                     case OBSTACLE:
@@ -168,12 +188,19 @@ int main(int argc, char* argv[])
                     default:
                         break;
                 }
-                printf("%d %d: %d\n", tile_x, tile_y, grid[tile_y][tile_x].cost);
-
+                printf("%d %d: %d, dk: %d\n", tile_x, tile_y, grid[tile_y][tile_x].cost, djikstra_map[tile_y][tile_x]);
             }
             if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+                if (grid[tile_y][tile_x].state == GOAL) {
+                    for (int i = 0; i < ROWS*COLS; i++) {
+                        if (djikstra_goals[i].x == (float)tile_x && djikstra_goals[i].y == (float)tile_y) {
+                            djikstra_goals[i] = (Vector2){-1,-1};
+                        }
+                    }
+                }
                 grid[tile_y][tile_x].state  = NONE;
                 grid[tile_y][tile_x].cost   = 1;
+                djiksta_trigger = true;
                 if (origin_cell == &grid[tile_y][tile_x]) origin_cell       = NULL;
                 else if (target_cell == &grid[tile_y][tile_x]) target_cell  = NULL;
             }
@@ -190,6 +217,10 @@ int main(int argc, char* argv[])
             bool find_path = (target_active && origin_active);
             simulation.draw_line = find_path;
 
+            if (!simulation.djiktra_created || djiksta_trigger) {
+                create_djikstra();
+                simulation.djiktra_created = true;
+            }
             if (find_path) {
                 Node start  = {origin_cell->id.x, origin_cell->id.y};
                 Node end    = {target_cell->id.x, target_cell->id.y};
@@ -208,8 +239,17 @@ int main(int argc, char* argv[])
                         DrawRectangle(c.top_left.x, c.top_left.y, SIZE, SIZE, TARGET_COL);
                     } else if (c.state == OBSTACLE) {
                         DrawRectangle(c.top_left.x, c.top_left.y, SIZE, SIZE, OBSTACLE_COL);
+                    } else if (c.state == GOAL) {
+                        DrawRectangle(c.top_left.x, c.top_left.y, SIZE, SIZE, GOAL_COL);
                     } else {
                         DrawRectangleLines(c.top_left.x, c.top_left.y, SIZE, SIZE, DARKGRAY);
+                    }
+                    if (simulation.sim) {
+                        int val = djikstra_map[y][x];
+                        //if (val == 0) continue;
+                        float v = (float)(val - 0) / (9 - 0);
+                        Color col = ColorLerp(RED, YELLOW, v);
+                        DrawRectangle(c.top_left.x, c.top_left.y, SIZE, SIZE, col);
                     }
 
                     DrawCircle(c.middle.x, c.middle.y, 1, DARKGRAY);
@@ -230,6 +270,49 @@ int main(int argc, char* argv[])
     CloseWindow();
     return 0;
 }
+
+void create_djikstra(void)
+{
+    for (int i = 0; i < ROWS*COLS; i++) {
+        Vector2 goal = djikstra_goals[i];
+        if (goal.x == -1) continue;
+        djikstra_map[(int)goal.y][(int)goal.x] = 0;
+    }
+    bool re_scan = true;
+    while (re_scan) {
+        re_scan = false;
+        for (int y = 0; y < ROWS; y++) {
+            for (int x = 0; x < COLS; x++) {
+                if (djikstra_map[y][x] == 0) continue;
+                if (grid[y][x].state == OBSTACLE) continue;
+                int current = djikstra_map[y][x];
+                int lowest = current;
+                for (int d = 0; d < 8; d++) {
+                    int dx = x + dirs[d][0];
+                    int dy = y + dirs[d][1];
+                    if (!in_bounds(dx, dy)) continue;
+                    int score = djikstra_map[dy][dx];
+                    if (score < lowest) lowest = score;
+                }
+                if (current > lowest + 1) {
+                    djikstra_map[y][x] = lowest + 1;
+                    re_scan = true;
+                }
+            }
+        }
+    }
+}
+
+void add_djikstra_goal(int y, int x)
+{
+    for (int i = 0; i < ROWS*COLS; i++) {
+        if (djikstra_goals[i].x == -1) {
+            djikstra_goals[i] = (Vector2) {x, y};
+            break;
+        }
+    }
+}
+
 
 int find_astar_path(Cell grid[][COLS], Node start, Node goal, Node outpath[], int maxPath)
 {
@@ -339,6 +422,9 @@ void draw_state(ClickState cs) {
             break;
         case OBSTACLE:
             DrawTextEx(font, "OBSTACLE", pos, FONT_SIZE, spacing, OBSTACLE_COL);
+            break;
+        case GOAL:
+            DrawTextEx(font, "GOAL", pos, FONT_SIZE, spacing, OBSTACLE_COL);
             break;
         default:
             DrawTextEx(font, "NONE", pos, FONT_SIZE, spacing, WHITE);
