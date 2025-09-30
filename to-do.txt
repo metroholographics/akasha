@@ -10,7 +10,7 @@ v0.1
 [X] Zooming + Panning
     [X] Zooming
     [X] Panning
-    [ ] Fully understand how this (camera) works
+    [ ] Fully understand how camera works
 [X] Tile selection
     [X] Mouse to Grid
 [X] ORGANIZE
@@ -18,16 +18,18 @@ v0.1
     [X] Leaders
     [X] Troops
     [X] Player army
-[!] Move player army
+[X] Move player army
     [X] Movement algorithm detour
     [X] REVERT DEBUG TASKS
-    [~] Implement Astar in main game
-        [~] Fix why path can't be longer than 14
-        [~] Figure out how to reset
-    [~] Move player to location
-[ ] Better tile selection systems
-[ ] Tile info
-    [ ] Walkable
-    [ ] Cost
-    [ ] Integrate into A*
+    [X] Implement Astar in main game
+        [X] Fix why path can't be longer than 14
+        [X] Figure out how to reset
+    [X] Move player to location
+[~] Tile cost
+    [~] Cost
+    [~] Integrate into A*
+[ ] Enemy armies
+    [~] Enemy spawning
+    [ ] Player->Enemy movement fix
+[ ] Revisit sprite system
 [ ] Tile click to enter battle view

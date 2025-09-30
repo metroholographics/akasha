@@ -4,28 +4,19 @@
 #include <math.h>
 #include "config.h"
 #include <stdbool.h>
+#include "main.h"
 
 #define AST_MAX_NODES (WORLD_ROWS * WORLD_COLS)
 #define AST_MAX_PATH 576
 
-typedef struct ast_Node {
-    int x;
-    int y;
-} ast_Node;
 
-typedef struct ast_astNode {
-    ast_Node node;
-    int g, h, f;
-    ast_Node parent;
-    bool used;
-} ast_astNode;
-
-static inline int ast_heuristic(ast_Node a, ast_Node b)
+static inline int ast_heuristic(ast_Node a, ast_Node b, int min_cost)
 {
     int dx  = abs(a.x - b.x);
     int dy  = abs(a.y - b.y);
-    int h   = (dx > dy) ? dx : dy;
-    return (h * 10 + (dx + dy));
+    int h = (dx > dy) ? dx : dy;
+
+    return h * min_cost;
 }
 
 static inline bool in_bounds(int x, int y)
@@ -38,17 +29,16 @@ static const int ast_dirs[8][2] = {
     {1,1}, {-1,1}, {1,-1}, {-1,-1}
 };
 
-struct GameState;
-
-int find_astar_path(struct GameState *g, ast_Node start, ast_Node goal, ast_Node outpath[], int maxpath)
+int find_astar_path(GameState *g, ast_Node start, ast_Node goal, ast_Node outpath[], int maxpath)
 {
+    int minimum_cost                    = 1;
     ast_astNode nodes[AST_MAX_NODES]    = {0};
     bool closed[WORLD_COLS][WORLD_ROWS] = {0};
 
     int startIdx            = start.y * WORLD_ROWS + start.x;
     nodes[startIdx].node    = start;
     nodes[startIdx].g       = 0;
-    nodes[startIdx].h       = ast_heuristic(start, goal);
+    nodes[startIdx].h       = ast_heuristic(start, goal, minimum_cost);
     nodes[startIdx].f       = nodes[startIdx].h;
     nodes[startIdx].parent  = (ast_Node) {.x = -1, .y = -1};
     nodes[startIdx].used    = true;
@@ -98,14 +88,13 @@ int find_astar_path(struct GameState *g, ast_Node start, ast_Node goal, ast_Node
 
             ast_Node neighbour = {nx, ny};
             int nIdx = ny * WORLD_ROWS + nx;
-            //int moveCost = grid[ny][nx].cost;; add move cost here
-            int moveCost = 1;
+            int moveCost = g->overworld[ny][nx].move_cost;
             int tentativeG = nodes[currentIdx].g + moveCost;
 
             if (!nodes[nIdx].used || tentativeG < nodes[nIdx].g) {
                 nodes[nIdx].used = true;
                 nodes[nIdx].g = tentativeG;
-                nodes[nIdx].h = ast_heuristic(neighbour, goal);
+                nodes[nIdx].h = ast_heuristic(neighbour, goal, minimum_cost);
                 nodes[nIdx].f = nodes[nIdx].g + nodes[nIdx].h;
                 nodes[nIdx].parent = current;
 
@@ -122,6 +111,5 @@ int find_astar_path(struct GameState *g, ast_Node start, ast_Node goal, ast_Node
     }
     return 0;
 }
-
 
 #endif
