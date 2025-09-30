@@ -19,12 +19,13 @@ v0.1
     [X] Troops
     [X] Player army
 [!] Move player army
-    [~] Movement algorithm detour
-    [~] REVERT DEBUG TASKS
-    [!] Implement Astar in main game
-        [ ] Fix drawing issue (draw it above the tiles - rethink how armies are stored)
-        [ ] Figure out how to reset
-    [ ] Move player to location
+    [X] Movement algorithm detour
+    [X] REVERT DEBUG TASKS
+    [~] Implement Astar in main game
+        [~] Fix why path can't be longer than 14
+        [~] Figure out how to reset
+    [~] Move player to location
+[ ] Better tile selection systems
 [ ] Tile info
     [ ] Walkable
     [ ] Cost

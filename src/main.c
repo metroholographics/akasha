@@ -6,7 +6,6 @@
 #include <time.h>
 #include <math.h>
 #include "main.h"
-#include "astar.h"
 
 GameState game;
 Tile world_tiles[NUM_TILE_TYPES];
@@ -32,10 +31,10 @@ int main (int argc, char *argv[])
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetRandomSeed(time(NULL));
 
-    camera = (Camera2D) {0};
-    camera.offset = (Vector2){RENDER_W / 2, RENDER_H / 2};
-    camera.target = (Vector2){RENDER_W / 2, RENDER_H / 2};
-    camera.zoom = 1.0f;
+    camera          = (Camera2D) {0};
+    camera.offset   = (Vector2){RENDER_W / 2, RENDER_H / 2};
+    camera.target   = (Vector2){RENDER_W / 2, RENDER_H / 2};
+    camera.zoom     = 1.0f;
 
     game.screen = LoadRenderTexture(RENDER_W, RENDER_H);
     SetTextureFilter(game.screen.texture, TEXTURE_FILTER_POINT);
@@ -48,32 +47,49 @@ int main (int argc, char *argv[])
     };
 
     Army test_army = (Army) {
-        .commander = &player
+        .commander = &player,
+        .path_length = 0,
+        .move_tracker = 0,
+        .state = FREE
     };
 
     game.overworld[1][5].army = &test_army;
 
-    SetTargetFPS(120);
+    SetTargetFPS(60);
     while (!WindowShouldClose()) {
+        float dt = GetFrameTime();
         Dimensions* g_d = &game.dimensions;
         Mouse*      g_m = &game.mouse;
-
         update_game_dimensions(g_d);
-        handle_mouse(g_m, g_d);
-    
+
+        Army* a = game.selected_army;
+        if (a != NULL && a->state == MOVING) {
+            game.timers.army_move_timer += dt;
+            if (game.timers.army_move_timer >= ARMY_MOVE_DELAY) {
+                int n = a->move_tracker + 1;
+                ast_Node current = a->current_path[a->move_tracker];
+                ast_Node next = a->current_path[n];
+                game.overworld[current.y][current.x].army = NULL;
+                game.overworld[next.y][next.x].army = a;
+                a->move_tracker++;
+                game.timers.army_move_timer = 0.0f;
+                game.selected_tile = &game.overworld[next.y][next.x];
+            }
+            if (a->move_tracker >= a->path_length - 1) {
+                a->move_tracker = 0;
+                a->path_length = 0;
+                a->state = (ArmyState) FREE;
+                game.timers.army_move_timer = 0.0f;
+            }
+        } else {
+            handle_mouse(g_m, g_d);
+        }
         //Drawing to render texture
         BeginTextureMode(game.screen);
             BeginMode2D(camera);
             ClearBackground((Color){25,0,25,255});
 
             draw_world(game.overworld);
-
-            // DrawTexturePro(
-            //     game.spritesheet,
-            //     (Rectangle){0,0,32,32},
-            //     (Rectangle){100,100,WORLD_TILE_W, WORLD_TILE_H},
-            //     (Vector2){0,0}, 0.0f, WHITE
-            // );
             // DrawCircle(camera.target.x, camera.target.y, 5, RED);
             // DrawCircle(camera.offset.x, camera.offset.y, 5, PINK);
             // DrawCircle(g_d->scaled_screen.x, g_d->scaled_screen.y, 3, BLUE);
@@ -117,18 +133,17 @@ void draw_world(Tile grid[][WORLD_ROWS])
             if (t->army != NULL) {
                 DrawTexturePro(
                     game.spritesheet,
-                    (Rectangle){0,0,32,32},
+                    (Rectangle){0,0,SPRITE_SIZE,SPRITE_SIZE},
                     (Rectangle){tile_pos.x,tile_pos.y,WORLD_TILE_W, WORLD_TILE_H},
                     (Vector2){0,0}, 0.0f, WHITE
                 );
                 if (t->army->path_length > 0) {
-                    for (int i = 0; i < t->army->path_length; i++) {
+                    for (int i = t->army->move_tracker + 1; i < t->army->path_length; i++) {
                         ast_Node step = t->army->current_path[i];
-                        DrawCircle(step.x * WORLD_TILE_W, step.y * WORLD_TILE_H, 4, GREEN);
+                        DrawCircle(step.x * WORLD_TILE_W, step.y * WORLD_TILE_H, 2, GREEN);
                     }
                 }
             }
-            //DrawRectangleLines(tile_pos.x, tile_pos.y, WORLD_TILE_W, WORLD_TILE_H, DARKGRAY);
         }
     }
 }
@@ -157,36 +172,42 @@ void handle_mouse(Mouse* m, Dimensions* d)
 {
     m->window_pos = GetMousePosition();
     m->screen_pos = window_to_screen_coords(m->window_pos, d->scaled_screen, d->scale);
-    //printf("%f %f\n", m->screen_pos.x, m->screen_pos.y);
     m->render_pos = pos_relative_to_render(m->screen_pos, camera);
-    //printf("%f %f\n", m->render_pos.x, m->render_pos.y);
     handle_zoom(m, &camera);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
         game.selected_tile  = NULL;
         game.move_tile      = NULL;
+        if (game.selected_army != NULL) {
+            game.selected_army->path_length = 0;
+            game.selected_army = NULL;
+        }
     }
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        Tile* t = get_world_tile(m->render_pos, game.overworld);
-        Tile* selected = game.selected_tile;
-        bool available = (t != NULL);
+        Tile* t         = get_world_tile(m->render_pos, game.overworld);
+        Tile* selected  = game.selected_tile;
+        bool available  = (t != NULL);
         if (available) {
-            bool already_selected = (t == selected);
-            bool selected_army = (selected != NULL && selected->army != NULL &&
+            bool already_selected   = (t == selected);
+            bool selected_move_tile = (t == game.move_tile);
+            bool selected_army      = (selected != NULL && selected->army != NULL &&
                 selected->army->commander->active && selected->army->commander->player
             );
             if (!already_selected && !selected_army) {
                 game.selected_tile = t;
-                //selected->army->path_length = 0;
-            } else if (!already_selected && selected_army) {
+            } else if (!already_selected && selected_army && !selected_move_tile) {
+                game.selected_army = selected->army;
                 game.move_tile = t;
                 ast_Node start = (ast_Node) {selected->x, selected->y};
                 ast_Node goal  = (ast_Node) {t->x, t->y};
                 selected->army->path_length = find_astar_path(&game, start, goal, selected->army->current_path, MAX_PATH);
+            } else if (selected_move_tile) {
+                game.selected_army->state = MOVING;
+                game.timers.army_move_timer = 0.0f;
+                game.move_tile = NULL;
             }
         }
-
     }
     if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
         Vector2 delta = GetMouseDelta();
@@ -265,8 +286,6 @@ Vector2 window_to_screen_coords(Vector2 world_pos, Rectangle dest, float scale)
         .y = my / scale
     };
 }
-
-
 
 Rectangle get_sprite_source(SpriteID index)
 {

@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #define AST_MAX_NODES (WORLD_ROWS * WORLD_COLS)
-#define AST_MAX_PATH 512
+#define AST_MAX_PATH 576
 
 typedef struct ast_Node {
     int x;
@@ -30,7 +30,7 @@ static inline int ast_heuristic(ast_Node a, ast_Node b)
 
 static inline bool in_bounds(int x, int y)
 {
-    return (x >= 0 && x < WORLD_COLS && y >= 0 && y < WORLD_ROWS);
+    return (x >= 0 && x < WORLD_ROWS && y >= 0 && y < WORLD_COLS);
 }
 
 static const int ast_dirs[8][2] = {
@@ -43,9 +43,9 @@ struct GameState;
 int find_astar_path(struct GameState *g, ast_Node start, ast_Node goal, ast_Node outpath[], int maxpath)
 {
     ast_astNode nodes[AST_MAX_NODES]    = {0};
-    bool closed[WORLD_ROWS][WORLD_COLS] = {0};
+    bool closed[WORLD_COLS][WORLD_ROWS] = {0};
 
-    int startIdx            = start.y * WORLD_COLS + start.x;
+    int startIdx            = start.y * WORLD_ROWS + start.x;
     nodes[startIdx].node    = start;
     nodes[startIdx].g       = 0;
     nodes[startIdx].h       = ast_heuristic(start, goal);
@@ -61,13 +61,13 @@ int find_astar_path(struct GameState *g, ast_Node start, ast_Node goal, ast_Node
         int bestIdx = 0;
         for (int i = 1; i < openCount; i++) {
             ast_Node n = openSet[i];
-            int idx = n.y * WORLD_COLS + n.x;
-            int bestNodeIdx = openSet[bestIdx].y * WORLD_COLS + openSet[bestIdx].x;
+            int idx = n.y * WORLD_ROWS + n.x;
+            int bestNodeIdx = openSet[bestIdx].y * WORLD_ROWS + openSet[bestIdx].x;
             if (nodes[idx].f < nodes[bestNodeIdx].f) bestIdx = i;
         }
 
         ast_Node current = openSet[bestIdx];
-        int currentIdx = current.y * WORLD_COLS + current.x;
+        int currentIdx = current.y * WORLD_ROWS + current.x;
         openSet[bestIdx] = openSet[--openCount];
 
         if (current.x == goal.x && current.y == goal.y) {
@@ -77,7 +77,7 @@ int find_astar_path(struct GameState *g, ast_Node start, ast_Node goal, ast_Node
 
             while (!(step.x == -1 && step.y == -1)) {
                 pathBuff[pathLen++] = step;
-                int idx = step.y * WORLD_COLS + step.x;
+                int idx = step.y * WORLD_ROWS + step.x;
                 step = nodes[idx].parent;
             }
 
@@ -97,7 +97,7 @@ int find_astar_path(struct GameState *g, ast_Node start, ast_Node goal, ast_Node
             if (closed[ny][nx]) continue;
 
             ast_Node neighbour = {nx, ny};
-            int nIdx = ny * WORLD_COLS + nx;
+            int nIdx = ny * WORLD_ROWS + nx;
             //int moveCost = grid[ny][nx].cost;; add move cost here
             int moveCost = 1;
             int tentativeG = nodes[currentIdx].g + moveCost;

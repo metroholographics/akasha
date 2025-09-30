@@ -5,7 +5,9 @@
 #include "astar.h"
 
 #define MAX_TROOPS 50
-#define MAX_PATH 512
+#define MAX_PATH 576
+
+#define ARMY_MOVE_DELAY 0.2f
 
 typedef enum {
     EMPTY = 0,
@@ -15,6 +17,11 @@ typedef enum {
     NUM_TILE_TYPES
 } TileType;
 
+typedef enum {
+    FREE = 0,
+    MOVING,
+    NUM_ARMY_STATES
+} ArmyState;
 typedef enum {
     NONE = 0,
     CLOUD_S,
@@ -47,7 +54,9 @@ typedef struct army {
     Entity troops[MAX_TROOPS];
     Entity* commander;
     ast_Node current_path[MAX_PATH];
+    int move_tracker;
     int path_length;
+    ArmyState state;
 } Army;
 
 typedef struct tile {
@@ -55,6 +64,10 @@ typedef struct tile {
     TileType type;
     Army* army;
 } Tile;
+
+typedef struct timers {
+    float army_move_timer;
+} Timers;
 
 typedef struct GameState {
     RenderTexture2D screen;
@@ -64,6 +77,8 @@ typedef struct GameState {
     Tile overworld[WORLD_COLS][WORLD_ROWS];
     Tile* selected_tile;
     Tile* move_tile;
+    Army* selected_army;
+    Timers timers;
 } GameState;
 
 Vector2 get_centered_top_left(float w, float h, float box_w, float box_h);
