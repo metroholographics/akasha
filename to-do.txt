@@ -25,11 +25,13 @@ v0.1
         [X] Fix why path can't be longer than 14
         [X] Figure out how to reset
     [X] Move player to location
-[~] Tile cost
-    [~] Cost
-    [~] Integrate into A*
-[ ] Enemy armies
+[X] Tile cost
+    [X] Cost
+    [X] Integrate into A*
+[~] Enemy armies
     [~] Enemy spawning
-    [ ] Player->Enemy movement fix
-[ ] Revisit sprite system
-[ ] Tile click to enter battle view
+    [~] Player->Enemy movement fix
+[~] Revisit sprite system
+[ ] Troops 
+[ ] Battle System
+[ ] Map generation

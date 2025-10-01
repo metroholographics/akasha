@@ -25,7 +25,7 @@ typedef enum {
 } ArmyState;
 
 typedef enum {
-    NONE = 0,
+    NONE_S = 0,
     PLAYER_S,
     ENEMY_S,
     CLOUD_S,
@@ -84,6 +84,7 @@ typedef struct ArmyManager {
 } ArmyManager;
 
 typedef struct tile {
+    SpriteID sprite;
     int x, y;
     TileType type;
     Army* army;
@@ -109,7 +110,7 @@ typedef struct GameState {
 
 Vector2 get_centered_top_left(float w, float h, float box_w, float box_h);
 void create_tiles(Tile* t_array);
-Tile create_tile(TileType tt, Army* a, int cost);
+Tile create_tile(TileType tt, Army* a, int cost, SpriteID s);
 Tile set_tile(TileType t, Tile* t_array);
 void create_empty_map(Tile grid[][WORLD_ROWS], Tile* t_array);
 Rectangle get_sprite_source(SpriteID index);

@@ -83,6 +83,7 @@ int find_astar_path(GameState *g, ast_Node start, ast_Node goal, ast_Node outpat
             int nx = current.x + ast_dirs[d][0];
             int ny = current.y + ast_dirs[d][1];
             if (!in_bounds(nx, ny)) continue;
+            
             //TODO - implement tile walkable check here
             if (closed[ny][nx]) continue;
 
@@ -90,6 +91,7 @@ int find_astar_path(GameState *g, ast_Node start, ast_Node goal, ast_Node outpat
             int nIdx = ny * WORLD_ROWS + nx;
             int moveCost = g->overworld[ny][nx].move_cost;
             int tentativeG = nodes[currentIdx].g + moveCost;
+            if (g->overworld[ny][nx].army != NULL) tentativeG += 99;
 
             if (!nodes[nIdx].used || tentativeG < nodes[nIdx].g) {
                 nodes[nIdx].used = true;

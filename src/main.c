@@ -47,7 +47,6 @@ int main (int argc, char *argv[])
         .active = true,
         .player = true
     };
-
     Entity enemy = (Entity) {
         .sprite = ENEMY_S,
         .active = true,
@@ -55,10 +54,7 @@ int main (int argc, char *argv[])
     };
 
     create_army(&game.armies, &player, 5, 1);
-
     create_army(&game.armies, &enemy, 10, 10);
-
-    game.overworld[1][5].army = &game.armies.armies[0];
 
     SetTargetFPS(60);
     while (!WindowShouldClose()) {
@@ -74,18 +70,25 @@ int main (int argc, char *argv[])
                 int n = a->move_tracker + 1;
                 ast_Node current = a->current_path[a->move_tracker];
                 ast_Node next = a->current_path[n];
+                if (game.overworld[next.y][next.x].army != NULL) {
+                    printf("Battle!\n");
+                    //::TODO: Add battle code. this just blocks movement for now
+                    a->move_tracker = a->path_length;
+                    goto end_army_move;
+                }
                 game.overworld[current.y][current.x].army = NULL;
                 game.overworld[next.y][next.x].army = a;
                 a->move_tracker++;
                 game.timers.army_move_timer = 0.0f;
                 game.selected_tile = &game.overworld[next.y][next.x];
             }
-            if (a->move_tracker >= a->path_length - 1) {
-                a->move_tracker = 0;
-                a->path_length = 0;
-                a->state = (ArmyState) FREE;
-                game.timers.army_move_timer = 0.0f;
-            }
+            end_army_move:
+                if (a->move_tracker >= a->path_length - 1) {
+                    a->move_tracker = 0;
+                    a->path_length = 0;
+                    a->state = (ArmyState) FREE;
+                    game.timers.army_move_timer = 0.0f;
+                }
         } else {
             handle_mouse(g_m, g_d);
         }
@@ -139,35 +142,26 @@ void draw_world(Tile grid[][WORLD_ROWS])
                 draw_army(*t->army, tile_pos.x, tile_pos.y, game.spritesheet);
             }
         }
-        Army* a = game.selected_army;
-        if (a != NULL && a->path_length > 0) {
-            for (int i = a->move_tracker + 1; i < a->path_length; i++) {
-                ast_Node step = a->current_path[i];
-                DrawCircle(step.x * WORLD_TILE_W + HALF_WORLD_TILE_W, step.y * WORLD_TILE_H + HALF_WORLD_TILE_H, 2, GREEN);
-            }
+        
+    }
+    Army* a = game.selected_army;
+    if (a != NULL && a->path_length > 0) {
+        for (int i = a->move_tracker + 1; i < a->path_length; i++) {
+            ast_Node step = a->current_path[i];
+            DrawCircle(step.x * WORLD_TILE_W + HALF_WORLD_TILE_W, step.y * WORLD_TILE_H + HALF_WORLD_TILE_H, 2, GREEN);
         }
     }
 }
 
 void draw_tile(Tile t, float x, float y, Texture2D s)
 {
-    SpriteID idx;
     Rectangle dest = (Rectangle) {
         .height = WORLD_TILE_H,
         .width = WORLD_TILE_W,
         .x = x,
         .y = y
      };
-
-    switch (t.type) {
-        case EMPTY:     idx = 0;            break;
-        case CLOUD:     idx = CLOUD_S;      break;
-        case MOON:      idx = MOON_S;       break;
-        case MOUNTAIN:  idx = MOUNTAIN_S;   break;
-        case FOREST:    idx = FOREST_S;     break;
-        default:        idx = 0;            break;
-    };
-    DrawTexturePro(s, get_sprite_source(idx), dest, (Vector2){0,0}, 0.0f, WHITE);
+    DrawTexturePro(s, get_sprite_source(t.sprite), dest, (Vector2){0,0}, 0.0f, WHITE);
 }
 
 void draw_army(Army a, float x, float y, Texture2D s)
@@ -178,7 +172,6 @@ void draw_army(Army a, float x, float y, Texture2D s)
         .x = x,
         .y = y
      };
-
     DrawTexturePro(s, get_sprite_source(a.commander->sprite), dest, (Vector2){0,0}, 0.0f, WHITE);
 }
 
@@ -276,7 +269,6 @@ Tile* get_world_tile(Vector2 renderpos, Tile grid[][WORLD_ROWS])
     return NULL;
 }
 
-
 Vector2 pos_relative_to_render(Vector2 current, Camera2D cam)
 {
     return (Vector2) {
@@ -339,20 +331,21 @@ Vector2 get_centered_top_left(float w, float h, float box_w, float box_h)
 
 void create_tiles(Tile* t_array)
 {
-    t_array[EMPTY]      = create_tile(EMPTY, NULL, 1);
-    t_array[CLOUD]      = create_tile(CLOUD, NULL, 1);
-    t_array[MOON]       = create_tile(MOON, NULL, 1);
-    t_array[MOUNTAIN]   = create_tile(MOUNTAIN, NULL, 2);
-    t_array[FOREST]     = create_tile(FOREST, NULL, 1);
+    t_array[EMPTY]      = create_tile(EMPTY, NULL, 1, NONE_S);
+    t_array[CLOUD]      = create_tile(CLOUD, NULL, 1, CLOUD_S);
+    t_array[MOON]       = create_tile(MOON, NULL, 1, MOON_S);
+    t_array[MOUNTAIN]   = create_tile(MOUNTAIN, NULL, 2, MOUNTAIN_S);
+    t_array[FOREST]     = create_tile(FOREST, NULL, 1, FOREST_S);
     return;
 }
 
-Tile create_tile(TileType tt, Army* a, int cost)
+Tile create_tile(TileType tt, Army* a, int cost, SpriteID s)
 {
     Tile t = {0};
-    t.type = tt;
-    t.army = a;
+    t.type      = tt;
+    t.army      = a;
     t.move_cost = cost;
+    t.sprite    = s;
 
     return t;
 }
@@ -388,7 +381,7 @@ void create_random_map(Tile grid[][WORLD_ROWS], Tile* t_array)
 
 void set_sprite_ids(Rectangle* s_array)
 {
-    s_array[NONE]       = (Rectangle) {0,0,0,0};
+    s_array[NONE_S]     = (Rectangle) {0,0,0,0};
     s_array[PLAYER_S]   = (Rectangle) {
         .height = SPRITE_SIZE, .width = SPRITE_SIZE,.x = 0, .y = 0};
     s_array[ENEMY_S]    = (Rectangle) {
