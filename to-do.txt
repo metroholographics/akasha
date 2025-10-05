@@ -28,10 +28,18 @@ v0.1
 [X] Tile cost
     [X] Cost
     [X] Integrate into A*
-[~] Enemy armies
-    [~] Enemy spawning
-    [~] Player->Enemy movement fix
-[~] Revisit sprite system
-[ ] Troops 
-[ ] Battle System
+[X] Enemy armies
+    [X] Enemy spawning
+    [X] Player->Enemy movement fix
+[X] Revisit sprite system
+[~] Troops
+    [~] Basic troops and adding to army
+[!] Battle System
+    [~] Enter battle mode
+    [~] Display armies
+        [ ] Fix sprite flipping 
+    [ ] Combat stats
+    [ ] Combat sim
 [ ] Map generation
+[ ] Map resources
+[ ] AI

@@ -8,9 +8,10 @@
 #include "main.h"
 #include "astar.h"
 
-GameState game;
-Tile world_tiles[NUM_TILE_TYPES];
-Rectangle sprites[NUM_SPRITES];
+GameState   game;
+Tile        world_tiles[NUM_TILE_TYPES];
+Rectangle   sprites[NUM_SPRITES];
+Entity      entities[NUM_ENTITY_TYPES];
 Camera2D camera;
 
 int main (int argc, char *argv[])
@@ -25,6 +26,7 @@ int main (int argc, char *argv[])
 
     set_sprite_ids(sprites);
     create_tiles(world_tiles);
+    create_entities(entities);
     //create_empty_map(game.overworld, world_tiles);
     create_random_map(game.overworld, world_tiles);
 
@@ -45,16 +47,27 @@ int main (int argc, char *argv[])
     Entity player = (Entity) {
         .sprite = PLAYER_S,
         .active = true,
-        .player = true
+        .player = true,
+        .type   = MAGE,
+        .rank   = COMMANDER,
     };
     Entity enemy = (Entity) {
         .sprite = ENEMY_S,
         .active = true,
-        .player = false
+        .player = false,
+        .type   = MAGE,
+        .rank   = COMMANDER,
     };
 
     create_army(&game.armies, &player, 5, 1);
     create_army(&game.armies, &enemy, 10, 10);
+
+    add_to_army(&player, SOLDIER, 5);
+    add_to_army(&player, ARCHER, 10);
+    add_to_army(&enemy, ARCHER, 6);
+    add_to_army(&enemy, MAGE, 2);
+
+    game.game_screen = OVERWORLD;
 
     SetTargetFPS(60);
     while (!WindowShouldClose()) {
@@ -63,41 +76,52 @@ int main (int argc, char *argv[])
         Mouse*      g_m = &game.mouse;
         update_game_dimensions(g_d);
 
-        Army* a = game.selected_army;
-        if (a != NULL && a->state == MOVING) {
-            game.timers.army_move_timer += dt;
-            if (game.timers.army_move_timer >= ARMY_MOVE_DELAY) {
-                int n = a->move_tracker + 1;
-                ast_Node current = a->current_path[a->move_tracker];
-                ast_Node next = a->current_path[n];
-                if (game.overworld[next.y][next.x].army != NULL) {
-                    printf("Battle!\n");
-                    //::TODO: Add battle code. this just blocks movement for now
-                    a->move_tracker = a->path_length;
-                    goto end_army_move;
-                }
-                game.overworld[current.y][current.x].army = NULL;
-                game.overworld[next.y][next.x].army = a;
-                a->move_tracker++;
-                game.timers.army_move_timer = 0.0f;
-                game.selected_tile = &game.overworld[next.y][next.x];
-            }
-            end_army_move:
-                if (a->move_tracker >= a->path_length - 1) {
-                    a->move_tracker = 0;
-                    a->path_length = 0;
-                    a->state = (ArmyState) FREE;
+        if (game.game_screen == OVERWORLD) {
+            Army* a = game.selected_army;
+            if (a != NULL && a->state == MOVING) {
+                game.timers.army_move_timer += dt;
+                if (game.timers.army_move_timer >= ARMY_MOVE_DELAY) {
+                    int n = a->move_tracker + 1;
+                    ast_Node current = a->current_path[a->move_tracker];
+                    ast_Node next = a->current_path[n];
+                    Army* next_army = game.overworld[next.y][next.x].army;
+                    if (next_army != NULL) {
+                        printf("Battle!\n");
+                        //::TODO: Add battle code. this just blocks movement for now
+                        a->move_tracker = a->path_length;
+                        set_battle_state(&game.battle, a, next_army, game.overworld[next.y][next.x]);
+                        goto end_army_move;
+                    }
+                    game.overworld[current.y][current.x].army = NULL;
+                    game.overworld[next.y][next.x].army = a;
+                    a->move_tracker++;
                     game.timers.army_move_timer = 0.0f;
+                    game.selected_tile = &game.overworld[next.y][next.x];
                 }
-        } else {
-            handle_mouse(g_m, g_d);
+                end_army_move:
+                    if (a->move_tracker >= a->path_length - 1) {
+                        a->move_tracker = 0;
+                        a->path_length = 0;
+                        a->state = (ArmyState) FREE;
+                        game.timers.army_move_timer = 0.0f;
+                    }
+            } else {
+                handle_mouse(g_m, g_d);
+            }
+        } else if (game.game_screen == BATTLE_MODE) {
+            update_battle(&game.battle);
         }
+
         //Drawing to render texture
         BeginTextureMode(game.screen);
             BeginMode2D(camera);
             ClearBackground((Color){25,0,25,255});
 
-            draw_world(game.overworld);
+            if (game.game_screen == OVERWORLD) {
+                draw_world(game.overworld);
+            } else if (game.game_screen == BATTLE_MODE) {
+                draw_battle(&game.battle);
+            }
             // DrawCircle(camera.target.x, camera.target.y, 5, RED);
             // DrawCircle(camera.offset.x, camera.offset.y, 5, PINK);
             // DrawCircle(g_d->scaled_screen.x, g_d->scaled_screen.y, 3, BLUE);
@@ -122,6 +146,123 @@ int main (int argc, char *argv[])
     return 0;
 }
 
+void draw_battle(BattleManager* b)
+{
+    Vector2 c1_pos = (Vector2) {0, WORLD_COLS / 2};
+    Vector2 c2_pos = (Vector2) {WORLD_ROWS - 1, WORLD_COLS / 2};
+    draw_entity(*b->army1->commander, c1_pos.x * WORLD_TILE_W, c1_pos.y * WORLD_TILE_H, game.spritesheet);
+    draw_entity(*b->army2->commander, c2_pos.x * WORLD_TILE_W, c2_pos.y * WORLD_TILE_H, game.spritesheet);
+    for (int i = 0; i < MAX_TROOPS; i++) {
+        Entity a1_e = b->army1_troops[i];
+        Vector2 a1_p = b->army1_pos[i];
+        Entity a2_e = b->army2_troops[i];
+        Vector2 a2_p = b->army2_pos[i];
+        if (a1_e.active) {
+            draw_entity(a1_e, a1_p.x * WORLD_TILE_W, a1_p.y * WORLD_TILE_H, game.spritesheet);
+        }
+        if (a2_e.active) {
+            draw_entity(a2_e, a2_p.x * WORLD_TILE_W, a2_p.y * WORLD_TILE_H, game.spritesheet);
+        }
+
+    }
+}
+
+void update_battle(BattleManager* b)
+{
+    if (!b->active) {
+        game.game_screen = OVERWORLD;
+        return;
+    }
+}
+
+void set_battle_state(BattleManager* b, Army* a1, Army* a2, Tile t)
+{
+    if (a1->commander->player || a2->commander->player) {
+        game.game_screen = BATTLE_MODE;
+    }
+    b->active   = true;
+    b->army1    = a1;
+    b->army2    = a2;
+    b->t        = t;
+    create_battle_troops(*a1, b->army1_troops);
+    create_battle_troops(*a2, b->army2_troops);
+    set_troop_positions(b->army1_troops, b->army1_pos, true);
+    set_troop_positions(b->army2_troops, b->army2_pos, false);
+}
+
+void set_troop_positions(Entity* troops, Vector2* positions, bool left)
+{
+    Vector2 centre;
+    int back_c, middle_c, front_c, direction;
+    int back_a, middle_a, front_a;
+    if (left) {
+        centre = (Vector2) {1, WORLD_COLS / 2};
+        direction = 1;
+    } else {
+        centre = (Vector2) {WORLD_ROWS - 2, WORLD_COLS / 2};
+        direction = -1;
+    }
+    back_c = middle_c = front_c = 0;
+    for (int i = 0; i < MAX_TROOPS; i++) {
+        if (!troops[i].active) continue;
+        switch (troops[i].rank) {
+            case BACK:
+                back_c++;
+                break;
+            case MIDDLE:
+                middle_c++;
+                break;
+            case FRONT:
+                front_c++;
+                break;
+            default:
+                break;
+        }
+    }
+    int back_offset     = (int)back_c / 2;
+    int middle_offset   = (int)middle_c / 2;
+    int front_offset    = (int)front_c / 2;
+    Vector2 back_start      = (Vector2) {centre.x, centre.y - back_offset};
+    Vector2 middle_start    = (Vector2) {centre.x + (direction*1), centre.y - middle_offset};
+    Vector2 front_start     = (Vector2) {centre.x + (direction*2), centre.y - front_offset};
+    back_a = middle_a = front_a = 0;
+    for (int i = 0; i < MAX_TROOPS; i++) {
+        if (!troops[i].active) continue;
+        switch (troops[i].rank) {
+            case BACK:
+                positions[i] = back_start;
+                positions[i].y += back_a;
+                back_a++;
+                break;
+            case MIDDLE:
+                positions[i] = middle_start;
+                positions[i].y += middle_a;
+                middle_a++;
+                break;
+            case FRONT:
+                positions[i] = front_start;
+                positions[i].y += front_a;
+                front_a++;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void create_battle_troops(Army a, Entity* troops)
+{
+    int index = 0;
+    for (int i = 0; i < MAX_TROOPS; i++) {
+        while (!a.troops[index].active && index < MAX_TROOPS) {
+            index++;
+        }
+        if (index == MAX_TROOPS) break;
+        troops[i] = a.troops[index];
+        index++;
+    }
+}
+
 void draw_world(Tile grid[][WORLD_ROWS])
 {
     for (int y = 0; y < WORLD_COLS; y++) {
@@ -139,10 +280,9 @@ void draw_world(Tile grid[][WORLD_ROWS])
             draw_tile(*t, tile_pos.x, tile_pos.y, game.spritesheet);
 
             if (t->army != NULL) {
-                draw_army(*t->army, tile_pos.x, tile_pos.y, game.spritesheet);
+                draw_entity(*t->army->commander, tile_pos.x, tile_pos.y, game.spritesheet);
             }
         }
-        
     }
     Army* a = game.selected_army;
     if (a != NULL && a->path_length > 0) {
@@ -157,22 +297,22 @@ void draw_tile(Tile t, float x, float y, Texture2D s)
 {
     Rectangle dest = (Rectangle) {
         .height = WORLD_TILE_H,
-        .width = WORLD_TILE_W,
-        .x = x,
-        .y = y
-     };
+        .width  = WORLD_TILE_W,
+        .x      = x,
+        .y      = y
+    };
     DrawTexturePro(s, get_sprite_source(t.sprite), dest, (Vector2){0,0}, 0.0f, WHITE);
 }
 
-void draw_army(Army a, float x, float y, Texture2D s)
+void draw_entity(Entity e, float x, float y, Texture2D s)
 {
     Rectangle dest = (Rectangle) {
         .height = WORLD_TILE_H,
-        .width = WORLD_TILE_W,
-        .x = x,
-        .y = y
-     };
-    DrawTexturePro(s, get_sprite_source(a.commander->sprite), dest, (Vector2){0,0}, 0.0f, WHITE);
+        .width  = WORLD_TILE_W,
+        .x      = x,
+        .y      = y
+    };
+    DrawTexturePro(s, get_sprite_source(e.sprite), dest, (Vector2){0,0}, 0.0f, WHITE);
 }
 
 void create_army(ArmyManager* am, Entity* commander, int x, int y)
@@ -183,17 +323,17 @@ void create_army(ArmyManager* am, Entity* commander, int x, int y)
     }
     for (int i = 0; i < MAX_ARMIES; i++) {
         if (!am->armies[i].initialised) {
-            am->armies[i] = (Army) {0};
+            am->armies[i]               = (Army) {0};
             am->armies[i].initialised   = true;
             am->armies[i].commander     = commander;
+            am->armies[i].commander->army = &am->armies[i];
             am->armies[i].state         = (ArmyState) FREE;
             am->army_count++;
-            game.overworld[y][x].army = &am->armies[i];
+            game.overworld[y][x].army   = &am->armies[i];
             break;
         }
     }
 }
-
 
 void handle_mouse(Mouse* m, Dimensions* d)
 {
@@ -236,10 +376,11 @@ void handle_mouse(Mouse* m, Dimensions* d)
             }
         }
     }
+
     if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
-        Vector2 delta = GetMouseDelta();
-        delta = Vector2Scale(delta, -1.0f / camera.zoom);
-        camera.target = Vector2Add(camera.target, delta);
+        Vector2 delta   = GetMouseDelta();
+        delta           = Vector2Scale(delta, -1.0f / camera.zoom);
+        camera.target   = Vector2Add(camera.target, delta);
     }
 }
 
@@ -249,13 +390,12 @@ void handle_zoom(Mouse* m, Camera2D* cam)
     if (move != 0.0f) {
         Vector2 worldBefore = pos_relative_to_render(m->window_pos, *cam);
 
-        cam->zoom = expf(logf(cam->zoom) + ((float)GetMouseWheelMove()*0.1f));
+        cam->zoom = expf(logf(cam->zoom) + (move*0.1f));
         if (cam->zoom > 3.0f) cam->zoom = 3.0f;
         Vector2 worldAfter = pos_relative_to_render(m->window_pos, *cam);
-        
+
         cam->target.x += (worldBefore.x - worldAfter.x);
         cam->target.y += (worldBefore.y - worldAfter.y);
-        
     }
 }
 
@@ -322,9 +462,8 @@ Vector2 get_centered_top_left(float w, float h, float box_w, float box_h)
 {
     float cen_x = box_w / 2;
     float cen_y = box_h / 2;
-
-    float c_x = cen_x - (0.5f * w);
-    float c_y = cen_y - (0.5f * h);
+    float c_x   = cen_x - (0.5f * w);
+    float c_y   = cen_y - (0.5f * h);
 
     return (Vector2){c_x, c_y};
 }
@@ -350,6 +489,29 @@ Tile create_tile(TileType tt, Army* a, int cost, SpriteID s)
     return t;
 }
 
+void create_entities(Entity* e_array)
+{
+    e_array[NONE] = (Entity) {0};
+    e_array[MAGE] = (Entity) {
+        .active = false,
+        .sprite = MAGE_S,
+        .type   = MAGE,
+        .rank   = BACK,
+    };
+    e_array[SOLDIER] =  (Entity) {
+        .active = false,
+        .sprite = SOLDIER_S,
+        .type   = SOLDIER,
+        .rank   = FRONT
+    };
+    e_array[ARCHER] =  (Entity) {
+        .active = false,
+        .sprite = ARCHER_S,
+        .type   = ARCHER,
+        .rank   = BACK,
+    };
+}
+
 Tile set_tile(TileType t, Tile* t_array)
 {
     return t_array[t];
@@ -359,9 +521,9 @@ void create_empty_map(Tile grid[][WORLD_ROWS], Tile* t_array)
 {
     for (int y = 0; y < WORLD_COLS; y++) {
         for (int x = 0; x < WORLD_ROWS; x++) {
-            grid[y][x] = set_tile(EMPTY, t_array);
-            grid[y][x].x = x;
-            grid[y][x].y = y;
+            grid[y][x]      = set_tile(EMPTY, t_array);
+            grid[y][x].x    = x;
+            grid[y][x].y    = y;
         }
     }
 }
@@ -372,9 +534,9 @@ void create_random_map(Tile grid[][WORLD_ROWS], Tile* t_array)
     for (int y = 0; y < WORLD_COLS; y++) {
         for (int x = 0; x < WORLD_ROWS; x++) {
             t = GetRandomValue(EMPTY, NUM_TILE_TYPES - 1);
-            grid[y][x] = set_tile(t, t_array);
-            grid[y][x].x = x;
-            grid[y][x].y = y;
+            grid[y][x]      = set_tile(t, t_array);
+            grid[y][x].x    = x;
+            grid[y][x].y    = y;
         }
     }
 }
@@ -394,5 +556,35 @@ void set_sprite_ids(Rectangle* s_array)
         .height = SPRITE_SIZE, .width = SPRITE_SIZE,.x = 96, .y = 0};
     s_array[FOREST_S]   = (Rectangle) {
         .height = SPRITE_SIZE, .width = SPRITE_SIZE,.x = 128, .y = 0};
+    s_array[MAGE_S]   = (Rectangle) {
+        .height = SPRITE_SIZE, .width = SPRITE_SIZE,.x = 96, .y = 32};
+    s_array[SOLDIER_S]   = (Rectangle) {
+        .height = SPRITE_SIZE, .width = SPRITE_SIZE,.x = 32, .y = 32};
+    s_array[ARCHER_S]   = (Rectangle) {
+        .height = SPRITE_SIZE, .width = SPRITE_SIZE,.x = 64, .y = 32};
     return;
+}
+
+void add_to_army(Entity* e, EntityType et, int amount)
+{
+    if (!e->active) return;
+    Army* a = e->army;
+    if (a == NULL || !a->initialised) {
+        printf(">>>army not initialised\n");
+        return;
+    }
+    int index = 0;
+    while (a->troop_count < MAX_TROOPS && amount > 0) {
+        while (a->troops[index].active && index < MAX_TROOPS) {
+            index++;
+        }
+        if (index == MAX_TROOPS) break;
+        //have sprite and type
+        a->troops[index] = entities[et];
+        a->troops[index].active = true;
+        a->troops[index].army = a;
+        amount -= 1;
+        a->troop_count++;
+        index++;
+    }
 }
