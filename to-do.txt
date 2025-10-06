@@ -32,14 +32,16 @@ v0.1
     [X] Enemy spawning
     [X] Player->Enemy movement fix
 [X] Revisit sprite system
-[~] Troops
-    [~] Basic troops and adding to army
+[X] Troops
+    [X] Basic troops and adding to army
 [!] Battle System
-    [~] Enter battle mode
-    [~] Display armies
-        [ ] Fix sprite flipping 
+    [X] Enter battle mode
+    [!] Display armies
+        [~] Detach from camera
+        [~] Fix sprite flipping 
     [ ] Combat stats
     [ ] Combat sim
+    [ ] Consider smarter troop ordering (random ordering within rank?)
 [ ] Map generation
 [ ] Map resources
 [ ] AI

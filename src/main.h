@@ -95,6 +95,7 @@ typedef struct entity {
     EntityType  type;
     bool        active;
     bool        player;
+    bool        flip;
     Army*       army;
     BattleRank  rank;
 } Entity;
@@ -161,7 +162,7 @@ void        create_entities(Entity* e_array);
 void        create_empty_map(Tile grid[][WORLD_ROWS], Tile* t_array);
 Rectangle   get_sprite_source(SpriteID index);
 void        draw_tile(Tile t, float x, float y, Texture2D s);
-void        draw_entity(Entity e, float x, float y, Texture2D s);
+void        draw_entity(Entity e, float x, float y, Texture2D s, bool flip);
 void        set_sprite_ids(Rectangle* s_array);
 void        create_random_map(Tile grid[][WORLD_ROWS], Tile* t_array);
 Vector2     window_to_screen_coords(Vector2 world_pos, Rectangle dest, float scale);
@@ -176,7 +177,7 @@ void        add_to_army(Entity* e, EntityType et, int amount);
 void        set_battle_state(BattleManager* b, Army* a1, Army* a2, Tile t);
 void        update_battle(BattleManager* b);
 void        draw_battle(BattleManager* b);
-void        create_battle_troops(Army a, Entity* troops);
+void        create_battle_troops(Army a, Entity* troops, bool flip);
 void        set_troop_positions(Entity* troops, Vector2* positions, bool left);
 
 #endif
